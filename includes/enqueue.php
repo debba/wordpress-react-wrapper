@@ -1,26 +1,38 @@
 <?php
 // This file enqueues scripts and styles
 
-defined( 'ABSPATH' ) or die( 'Direct script access disallowed.' );
+defined('ABSPATH') or die('Direct script access disallowed.');
 
-add_action( 'init', function() {
+add_action('init', function () {
 
-    add_filter( 'script_loader_tag', function( $tag, $handle ) {
-        if ( ! preg_match( '/^alkw-/', $handle ) ) { return $tag; }
-        return str_replace( ' src', ' async defer src', $tag );
-    }, 10, 2 );
+    add_filter('script_loader_tag', function ($tag, $handle) {
+        if (!preg_match('/^alkw-/', $handle)) {
+            return $tag;
+        }
+        return str_replace(' src', ' async defer src', $tag);
+    }, 10, 2);
 
-    add_action( 'wp_enqueue_scripts', function() {
+    add_action('wp_enqueue_scripts', function () {
+        global $post;
+
+        if (!has_shortcode($post->post_content, 'alkw_widget')) {
+            return;
+        }
 
         $asset_manifest = json_decode( file_get_contents( ALKW_ASSET_MANIFEST ), true )['files'];
 
         if ( isset( $asset_manifest[ 'main.css' ] ) ) {
-            wp_enqueue_style( 'alkw', plugin_dir_path( __FILE__ ). $asset_manifest[ 'main.css' ] );
+            wp_enqueue_style( 'alkw', get_site_url() . $asset_manifest[ 'main.css' ] );
         }
 
-        wp_enqueue_script( 'alkw-runtime', get_site_url() . $asset_manifest[ 'runtime-main.js' ], array(), null, true );
+        $main_deps = [];
 
-        wp_enqueue_script( 'alkw-main', get_site_url() . $asset_manifest[ 'main.js' ], array('alkw-runtime'), null, true );
+        if (isset($asset_manifest[ 'runtime-main.js' ])) {
+            wp_enqueue_script('alkw-runtime', get_site_url() . $asset_manifest['runtime-main.js'], array(), null, true);
+            $main_deps[] = 'alkw-runtime';
+        }
+
+        wp_enqueue_script( 'alkw-main', get_site_url() . $asset_manifest[ 'main.js' ], $main_deps, null, true );
 
         foreach ( $asset_manifest as $key => $value ) {
             if ( preg_match( '@static/js/(.*)\.chunk\.js@', $key, $matches ) ) {
